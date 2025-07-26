@@ -1,0 +1,53 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Carrinho de Compras</h2>
+    {% if cart_items %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Preço Unitário</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set ns = namespace(total=0) %}
+            {% for item in cart_items %}
+            {% set subtotal = item.product.price * item.quantity %}
+            {% set ns.total = ns.total + subtotal %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td>
+                    {{ item.quantity }}
+                    <form action="/remove_from_cart" method="post" class="d-inline">
+                        <input type="hidden" name="product_id" value="{{ item.product.id }}">
+                        <button type="submit" class="btn btn-sm btn-danger ms-2" title="Remover um">
+                            <i class="bi bi-trash"></i> <!-- Bootstrap Icons -->
+                        </button>
+                    </form>
+                </td>
+                <td>€ {{ '%.2f'|format(item.product.price) }}</td>
+                <td>€ {{ '%.2f'|format(subtotal) }}</td>
+            </tr>
+            {% endfor %}
+
+        </tbody>
+    </table>
+    <div class="text-end">
+        <h4>Total: € {{ '%.2f'|format(ns.total) }}</h4>
+
+        <form action="/clear_cart" method="post" class="d-inline">
+            <button type="submit" class="btn btn-outline-danger mt-3"
+                onclick="return confirm('Tem a certeza que deseja limpar o carrinho?')">
+                <i class="bi bi-x-circle"></i> Limpar Carrinho
+            </button>
+        </form>
+
+    </div>
+    {% else %}
+    <p>O carrinho está vazio.</p>
+    {% endif %}
+</div>
+{% endblock %}
