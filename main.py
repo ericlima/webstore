@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
+from flask import g
 from sqlalchemy.orm import joinedload
 from uuid import uuid4
 import os
+import base64
 
 app = Flask(__name__)
 
@@ -13,6 +15,17 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+@app.before_request
+def load_cart_info():
+    session_id, _ = get_or_create_session_id()
+    items = CartItem.query.filter_by(session_id=session_id).all()
+    g.cart_quantity = sum(item.quantity for item in items)
+    g.cart_total = sum(item.quantity * item.product.price for item in items)
+
+def encode_image_base64(filepath):
+    with open(filepath, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
 # Modelos
 class Product(db.Model):
     __tablename__ = "products"
@@ -21,6 +34,10 @@ class Product(db.Model):
     description = db.Column(db.String, nullable=False)
     price = db.Column(db.Float, nullable=False)
     image_url = db.Column(db.String, nullable=False)
+    image_base64 = db.Column(db.Text, nullable=True)
+    hidden = db.Column(db.Boolean, default=False)
+    reserved = db.Column(db.Boolean, default=False)
+ 
 
 class Customer(db.Model):
     __tablename__ = "customers"
@@ -62,8 +79,9 @@ def get_or_create_session_id():
 # Rotas
 @app.route("/")
 def home():
-    products = Product.query.all()
+    products = Product.query.filter_by(hidden=False).all()
     return render_template("index.html", products=products)
+
 
 @app.route("/cart")
 def view_cart():
@@ -122,20 +140,65 @@ def register():
         return redirect(url_for("home"))
     return render_template("register.html")
 
-@app.route("/populate")
-def populate():
-    if Product.query.count() == 0:
-        products = [
-            Product(name="Notebook Dell", description="Notebook 15'' 8GB RAM", price=3500.00, image_url="https://via.placeholder.com/300x200?text=Notebook"),
-            Product(name="Smartphone Samsung", description="Galaxy S21 128GB", price=2500.00, image_url="https://via.placeholder.com/300x200?text=Smartphone"),
-            Product(name="Fone Bluetooth", description="Fone sem fio com case", price=200.00, image_url="https://via.placeholder.com/300x200?text=Fone+Bluetooth"),
-            Product(name="Monitor LG", description="Monitor 24'' Full HD", price=900.00, image_url="https://via.placeholder.com/300x200?text=Monitor"),
-            Product(name="Teclado Mecânico", description="Teclado RGB ABNT2", price=350.00, image_url="https://via.placeholder.com/300x200?text=Teclado"),
-            Product(name="Mouse Gamer", description="Mouse 7200dpi RGB", price=180.00, image_url="https://via.placeholder.com/300x200?text=Mouse"),
-        ]
-        db.session.add_all(products)
+@app.route("/manage_products", methods=["GET", "POST"])
+def manage_products():
+    products = Product.query.all()
+    return render_template("manage_products.html", products=products)
+
+@app.route("/toggle_product_state", methods=["POST"])
+def toggle_product_state():
+    product_id = request.form["product_id"]
+    action = request.form["action"]
+
+    product = Product.query.get(product_id)
+
+    if product:
+        if action == "toggle_hidden":
+            product.hidden = not product.hidden
+        elif action == "toggle_reserved":
+            product.reserved = not product.reserved
+        elif action == "delete":
+            db.session.delete(product)
         db.session.commit()
-    return {"message": "Produtos de exemplo inseridos."}
+
+    return redirect(url_for("manage_products"))
+
+@app.route("/add_product", methods=["GET", "POST"])
+def add_product():
+    if request.method == "POST":
+        name = request.form["name"]
+        description = request.form["description"]
+        price = request.form.get("price", type=float)
+
+        image_file = request.files["image"]
+        if image_file:
+            image_data = image_file.read()
+            image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+            new_product = Product(
+                name=name,
+                description=description,
+                price=price,
+                image_url="",  # Pode ser usado no futuro se quiser armazenar caminhos
+                image_base64=image_base64
+            )
+            db.session.add(new_product)
+            db.session.commit()
+            return redirect(url_for("home"))
+
+    return render_template("add_product.html")
+
+@app.route("/edit_product/<int:product_id>", methods=["GET", "POST"])
+def edit_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    if request.method == "POST":
+        product.name = request.form["name"]
+        product.description = request.form["description"]
+        product.price = request.form.get("price", type=float)
+        db.session.commit()
+        return redirect(url_for("manage_products"))
+    return render_template("edit_product.html", product=product)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

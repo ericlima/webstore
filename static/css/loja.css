@@ -1,0 +1,6 @@
+
+.image-30vh {
+    height: 30vh;
+    object-fit: contain;
+    max-width: 100%;
+}
