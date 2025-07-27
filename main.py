@@ -1,3 +1,4 @@
+import email
 from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask import g
@@ -18,6 +19,20 @@ DATABASE_PATH = os.path.join(BASE_DIR, "store.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DATABASE_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+
+app.config.update(
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_USE_TLS=os.getenv("MAIL_USE_TLS") == "true",
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD")
+)
+
+email_pedido = os.getenv("EMAIL_PEDIDO")
+
+mail = Mail(app)
+
+
 db = SQLAlchemy(app)
 
 @app.before_request
@@ -35,6 +50,7 @@ class Order(db.Model):
     __tablename__ = "orders"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)
     address = db.Column(db.String, nullable=False)
     postal_code = db.Column(db.String, nullable=False)
     city = db.Column(db.String, nullable=False)
@@ -229,16 +245,6 @@ def edit_product(product_id):
     return render_template("edit_product.html", product=product)
 
 
-app.config.update(
-    MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_PORT=int(os.getenv("MAIL_PORT")),
-    MAIL_USE_TLS=os.getenv("MAIL_USE_TLS") == "true",
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD")
-)
-
-mail = Mail(app)
-
 @app.route("/checkout", methods=["GET", "POST"])
 def checkout():
     session_id, _ = get_or_create_session_id()
@@ -251,6 +257,7 @@ def checkout():
         # Criar o pedido
         order = Order(
             name=request.form["name"],
+            email=request.form["email"],
             address=request.form["address"],
             postal_code=request.form["postal_code"],
             city=request.form["city"],
@@ -274,22 +281,34 @@ def checkout():
             product.reserved = True
 
         # Montar corpo do e-mail
+
+        total_pedido = sum(item.quantity * item.product.price for item in cart_items)
+
         msg = Message(
-            subject="Novo Pedido Recebido",
-            recipients=["angela@gmail.com"],
+            subject="Novo Pedido Recebido em: " + order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            sender=os.getenv("MAIL_USERNAME"), 
+            recipients=[email_pedido],
             body=f"""
-            Novo pedido de {order.name}
-            Morada: {order.address}
-            Código Postal: {order.postal_code}
-            Cidade: {order.city}
-            Telefone: {order.phone}
+        Novo pedido de {order.name}
+        E-mail: {order.email}
+        Morada: {order.address}
+        Código Postal: {order.postal_code}
+        Cidade: {order.city}
+        Telefone: {order.phone}
 
-            Observações:
-            {order.notes or 'Nenhuma'}
+        Observações:
+        {order.notes or 'Nenhuma'}
 
-            Itens:
-            """ + "\n".join(f"{item.quantity}x {item.product.name}" for item in cart_items)
+        Itens:
+        """ + "\n".join(
+            f"{item.quantity}x {item.product.name} - € {item.product.price:.2f} cada - Subtotal: € {item.quantity * item.product.price:.2f}"
+            for item in cart_items
+        ) + f"""
+
+        Total do Pedido: € {total_pedido:.2f}
+        """
         )
+
         mail.send(msg)
 
         # Apagar carrinho
