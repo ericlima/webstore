@@ -4,9 +4,12 @@ from flask import g
 from sqlalchemy.orm import joinedload
 from uuid import uuid4
 from flask_mail import Mail, Message
+from dotenv import load_dotenv
 
 import os
 import base64
+
+load_dotenv()  # carrega .env automaticamente
 
 app = Flask(__name__)
 
@@ -226,13 +229,12 @@ def edit_product(product_id):
     return render_template("edit_product.html", product=product)
 
 
-# Configurar e-mail (exemplo com Gmail SMTP)
 app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USERNAME='seu.email@gmail.com',  # substitua
-    MAIL_PASSWORD='sua_senha',           # substitua
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_USE_TLS=os.getenv("MAIL_USE_TLS") == "true",
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD")
 )
 
 mail = Mail(app)
