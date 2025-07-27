@@ -6,8 +6,12 @@
         {% for product in products %}
         <div class="col">
             <div class="card h-100">
-                <img src="data:image/png;base64,{{ product.image_base64 }}" alt="{{ product.name }}"
-                    class="card-img-top image-30vh">
+                <img src="data:image/png;base64,{{ product.image_base64 }}" 
+                    alt="{{ product.name }}"
+                    class="card-img-top image-30vh" 
+                    style="cursor: zoom-in;" 
+                    onclick="openImageModal(this.src)">
+
 
                 <div class="card-body">
                     <h5 class="card-title">{{ product.name }}</h5>
@@ -15,20 +19,46 @@
                     <p class="card-text">Artista: {{ product.artist }}</p>
 
                     {% if product.reserved %}
-                        <p class="card-text text-warning"><strong>Reservado</strong></p>
+                    <p class="card-text text-warning"><strong>Reservado</strong></p>
                     {% else %}
-                        <p class="card-text"><strong>Preço:</strong> € {{ '%.2f'|format(product.price) }}</p>
-                        <form method="post" action="{{ url_for('add_to_cart') }}">
-                            <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <button type="submit" class="btn btn-primary">Adicionar ao Carrinho</button>
-                        </form>
+                    <p class="card-text"><strong>Preço:</strong> € {{ '%.2f'|format(product.price) }}</p>
+                    <form method="post" action="{{ url_for('add_to_cart') }}">
+                        <input type="hidden" name="product_id" value="{{ product.id }}">
+                        <button type="submit" class="btn btn-primary">Adicionar ao Carrinho</button>
+                    </form>
                     {% endif %}
 
-                    
+
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
+<!-- Modal da imagem -->
+<div id="imageModal" class="modal" onclick="closeModal()">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <img class="modal-content" id="modalImage">
+</div>
+
+<script>
+    function openImageModal(imageSrc) {
+        const modal = document.getElementById("imageModal");
+        const modalImg = document.getElementById("modalImage");
+        modal.style.display = "block";
+        modalImg.src = imageSrc;
+    }
+
+    function closeModal() {
+        document.getElementById("imageModal").style.display = "none";
+    }
+
+    // Fecha com tecla ESC
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+            closeModal();
+        }
+    });
+</script>
+
 {% endblock %}
