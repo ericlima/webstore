@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import g
 from sqlalchemy.orm import joinedload
 from uuid import uuid4
+from flask_mail import Mail, Message
+
 import os
 import base64
 
@@ -26,19 +28,40 @@ def encode_image_base64(filepath):
     with open(filepath, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
+class Order(db.Model):
+    __tablename__ = "orders"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    address = db.Column(db.String, nullable=False)
+    postal_code = db.Column(db.String, nullable=False)
+    city = db.Column(db.String, nullable=False)
+    phone = db.Column(db.String, nullable=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    items = db.relationship("OrderItem", backref="order", cascade="all, delete")
+
+class OrderItem(db.Model):
+    __tablename__ = "order_items"
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"))
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id"))
+    quantity = db.Column(db.Integer, nullable=False)
+    product = db.relationship("Product")
+
 # Modelos
 class Product(db.Model):
     __tablename__ = "products"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
+    artist = db.Column(db.String, nullable=False) 
     description = db.Column(db.String, nullable=False)
     price = db.Column(db.Float, nullable=False)
     image_url = db.Column(db.String, nullable=False)
     image_base64 = db.Column(db.Text, nullable=True)
     hidden = db.Column(db.Boolean, default=False)
-    reserved = db.Column(db.Boolean, default=False)
- 
+    reserved = db.Column(db.Boolean, default=False)             
 
+ 
 class Customer(db.Model):
     __tablename__ = "customers"
     id = db.Column(db.Integer, primary_key=True)
@@ -169,6 +192,7 @@ def add_product():
         name = request.form["name"]
         description = request.form["description"]
         price = request.form.get("price", type=float)
+        artist = request.form["artist"]
 
         image_file = request.files["image"]
         if image_file:
@@ -179,12 +203,13 @@ def add_product():
                 name=name,
                 description=description,
                 price=price,
+                artist=artist,
                 image_url="",  # Pode ser usado no futuro se quiser armazenar caminhos
                 image_base64=image_base64
             )
             db.session.add(new_product)
             db.session.commit()
-            return redirect(url_for("home"))
+            return redirect(url_for("manage_products"))
 
     return render_template("add_product.html")
 
@@ -195,10 +220,83 @@ def edit_product(product_id):
         product.name = request.form["name"]
         product.description = request.form["description"]
         product.price = request.form.get("price", type=float)
+        product.artist = request.form["artist"]
         db.session.commit()
         return redirect(url_for("manage_products"))
     return render_template("edit_product.html", product=product)
 
+
+# Configurar e-mail (exemplo com Gmail SMTP)
+app.config.update(
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME='seu.email@gmail.com',  # substitua
+    MAIL_PASSWORD='sua_senha',           # substitua
+)
+
+mail = Mail(app)
+
+@app.route("/checkout", methods=["GET", "POST"])
+def checkout():
+    session_id, _ = get_or_create_session_id()
+    cart_items = CartItem.query.options(joinedload(CartItem.product)).filter_by(session_id=session_id).all()
+
+    if not cart_items:
+        return redirect(url_for("view_cart"))
+
+    if request.method == "POST":
+        # Criar o pedido
+        order = Order(
+            name=request.form["name"],
+            address=request.form["address"],
+            postal_code=request.form["postal_code"],
+            city=request.form["city"],
+            phone=request.form["phone"],
+            notes=request.form["notes"]
+        )
+        db.session.add(order)
+        db.session.flush()  # para pegar o order.id
+
+        # Adicionar itens ao pedido e reservar produtos
+        for item in cart_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item.product_id,
+                quantity=item.quantity
+            )
+            db.session.add(order_item)
+
+            # Reservar produto
+            product = item.product
+            product.reserved = True
+
+        # Montar corpo do e-mail
+        msg = Message(
+            subject="Novo Pedido Recebido",
+            recipients=["angela@gmail.com"],
+            body=f"""
+            Novo pedido de {order.name}
+            Morada: {order.address}
+            Código Postal: {order.postal_code}
+            Cidade: {order.city}
+            Telefone: {order.phone}
+
+            Observações:
+            {order.notes or 'Nenhuma'}
+
+            Itens:
+            """ + "\n".join(f"{item.quantity}x {item.product.name}" for item in cart_items)
+        )
+        mail.send(msg)
+
+        # Apagar carrinho
+        CartItem.query.filter_by(session_id=session_id).delete()
+        db.session.commit()
+
+        return redirect(url_for("home"))
+
+    return render_template("checkout.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

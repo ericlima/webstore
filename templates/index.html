@@ -12,17 +12,19 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ product.name }}</h5>
                     <p class="card-text">{{ product.description }}</p>
+                    <p class="card-text">Artista: {{ product.artist }}</p>
 
                     {% if product.reserved %}
                         <p class="card-text text-warning"><strong>Reservado</strong></p>
                     {% else %}
                         <p class="card-text"><strong>Preço:</strong> € {{ '%.2f'|format(product.price) }}</p>
+                        <form method="post" action="{{ url_for('add_to_cart') }}">
+                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                            <button type="submit" class="btn btn-primary">Adicionar ao Carrinho</button>
+                        </form>
                     {% endif %}
 
-                    <form method="post" action="{{ url_for('add_to_cart') }}">
-                        <input type="hidden" name="product_id" value="{{ product.id }}">
-                        <button type="submit" class="btn btn-primary">Adicionar ao Carrinho</button>
-                    </form>
+                    
                 </div>
             </div>
         </div>

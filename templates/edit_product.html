@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-4">Editar Produto</h2>
-    
+
     <form method="post">
         <div class="mb-3">
             <label for="name" class="form-label">Nome do Produto</label>
@@ -11,12 +11,19 @@
 
         <div class="mb-3">
             <label for="description" class="form-label">Descrição</label>
-            <textarea name="description" id="description" class="form-control" rows="3" required>{{ product.description }}</textarea>
+            <textarea name="description" id="description" class="form-control" rows="3"
+                required>{{ product.description }}</textarea>
         </div>
 
         <div class="mb-3">
             <label for="price" class="form-label">Preço (€)</label>
-            <input type="number" step="0.01" name="price" id="price" class="form-control" value="{{ product.price }}" required>
+            <input type="number" step="0.01" name="price" id="price" class="form-control" value="{{ product.price }}"
+                required>
+        </div>
+
+        <div class="mb-3">
+            <label for="artist" class="form-label">Artista</label>
+            <input type="text" name="artist" id="artist" class="form-control" value="{{ product.artist }}" required>
         </div>
 
         <div class="mb-3">

@@ -45,6 +45,11 @@
             </button>
         </form>
 
+        <form action="{{ url_for('checkout') }}">
+            <button class="btn btn-success mt-3">Finalizar Pedido</button>
+        </form>
+
+
     </div>
     {% else %}
     <p>O carrinho está vazio.</p>

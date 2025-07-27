@@ -1,0 +1,33 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Finalizar Pedido</h2>
+    <form method="post">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" name="name" id="name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Morada</label>
+            <input type="text" name="address" id="address" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="postal_code" class="form-label">Código Postal</label>
+            <input type="text" name="postal_code" id="postal_code" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="city" class="form-label">Cidade</label>
+            <input type="text" name="city" id="city" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="text" name="phone" id="phone" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="notes" class="form-label">Observações</label>
+            <textarea name="notes" id="notes" class="form-control" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Confirmar Pedido</button>
+    </form>
+</div>
+{% endblock %}
